@@ -30,6 +30,16 @@ ctx.moveTo(0, judgeLineY);
 ctx.lineTo(canvas.width, judgeLineY);
 ctx.stroke();
 
+const music = document.getElementById("music");
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.code === "Space") {
+        music.play();
+    }
+
+});
+
 function drawNotes(currentTime) {
     ctx.fillStyle = "cyan";
 
@@ -58,18 +68,20 @@ const notes = [
     { lane: 3, time: 2500 }
 ];
 
-const startTime = performance.now();
+const recordedNotes = [];
 
-function gameLoop() {
+
+function gameLoop() {let editMode = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawLanes();
     drawJudgeLine();
 
-    const currentTime = performance.now() - startTime;
+    const currentTime = music.currentTime * 1000;
 
     drawNotes(currentTime);
     drawHitMessage();
+    drawEditMode();
 
     requestAnimationFrame(gameLoop);
 }
@@ -113,12 +125,31 @@ document.addEventListener("keydown", function(event) {
     };
 
     if (keyMap[key] !== undefined) {
-        checkHit(keyMap[key]);
+        const lane = keyMap[key];
+
+        if (editMode) {
+            recordNote(lane);
+        } else {
+            checkHit(lane);
+        }
     }
 });
 
+function recordNote(lane) {
+    const currentTime = music.currentTime * 1000;
+
+    const note = {
+        lane: lane,
+        time: Math.round(currentTime)
+    };
+
+    recordedNotes.push(note);
+
+    console.log(note);
+}
+
 function checkHit(lane) {
-    const currentTime = performance.now() - startTime;
+    const currentTime = music.currentTime * 1000;
 
     let closestNote = null;
     let closestDistance = Infinity;
@@ -164,5 +195,41 @@ function drawHitMessage() {
         400
     );
 }
+
+function drawEditMode() {
+    if (editMode) {
+        ctx.fillStyle = "lime";
+        ctx.font = "20px Arial";
+        ctx.textAlign = "left";
+
+        ctx.fillText(
+            "EDIT MODE",
+            20,
+            30
+        );
+    }
+}
+
+
+let editMode = false;
+
+document.addEventListener("keydown", function(event) {
+    if (event.key.toLowerCase() === "e") {
+        editMode = !editMode;
+
+        console.log("譜面作成モード:", editMode);
+    }
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key.toLowerCase() === "r") {
+        music.pause();
+        music.currentTime = 0;
+
+        hitMessage = "";
+
+        console.log("曲を最初に戻しました");
+    }
+});
 
 gameLoop();
