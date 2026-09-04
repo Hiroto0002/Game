@@ -6,11 +6,22 @@ let score = 0;
 let totalJudgementScore = 0;
 let judgedNotes = 0;
 
+
 canvas.width = 500;
 canvas.height = 800;
 
 const laneCount = 4;
 const laneWidth = canvas.width / laneCount;
+
+const keyMap = {
+    d: 0,
+    f: 1,
+    j: 2,
+    k: 3
+};
+
+const keyHeld = [false, false, false, false];
+const holdStartTimes = [null, null, null, null];
 
 ctx.strokeStyle = "white";
 ctx.lineWidth = 2;
@@ -27,6 +38,10 @@ for (let i = 1; i < laneCount; i++) {
 
 const judgeLineY = 700;
 const travelTime = 2000;
+
+const PERFECT_WINDOW = 50;
+const GREAT_WINDOW = 100;
+const GOOD_WINDOW = 150;
 
 ctx.strokeStyle = "yellow";
 ctx.lineWidth = 4;
@@ -58,14 +73,33 @@ function drawNotes(currentTime) {
         const timeUntilHit = note.time - currentTime;
         const progress = 1 - timeUntilHit / travelTime;
         const y = progress * judgeLineY;
+
         const x = note.lane * laneWidth + 10;
 
-        ctx.fillRect(
-            x,
-            y,
-            laneWidth - 20,
-            20
-        );
+        if (note.type === "hold") {
+
+            const endTimeUntilHit = note.endTime - currentTime;
+            const endProgress = 1 - endTimeUntilHit / travelTime;
+            const endY = endProgress * judgeLineY;
+
+            const holdHeight = y - endY;
+
+            ctx.fillRect(
+                x,
+                endY,
+                laneWidth - 20,
+                holdHeight
+            );
+
+        } else {
+
+            ctx.fillRect(
+                x,
+                y,
+                laneWidth - 20,
+                20
+            );
+        }
     }
 }
 
@@ -73,7 +107,17 @@ let notes = [
     { lane: 0, time: 1000, hit: false },
     { lane: 2, time: 1500, hit: false },
     { lane: 1, time: 2000, hit: false },
-    { lane: 3, time: 2500, hit: false }
+    { lane: 3, time: 2500, hit: false },
+
+    {
+        lane: 0,
+        time: 3000,
+        endTime: 5000,
+        type: "hold",
+
+        holding: false,
+        hit: false
+    }
 ];
 
 const recordedNotes = [];
@@ -90,11 +134,13 @@ function gameLoop() {
 
         drawLanes();
         drawJudgeLine();
+        drawKeyLights();
 
         const currentTime = music.currentTime * 1000;
 
         if (!editMode) {
             checkMiss(currentTime);
+            checkHoldNotes(currentTime);
         }
 
         drawNotes(currentTime);
@@ -134,40 +180,6 @@ function drawJudgeLine() {
 
 let hitMessage = "";
 
-document.addEventListener("keydown", function(event) {
-    const key = event.key.toLowerCase();
-
-    const keyMap = {
-        d: 0,
-        f: 1,
-        j: 2,
-        k: 3
-    };
-
-    if (keyMap[key] !== undefined) {
-        const lane = keyMap[key];
-
-        if (editMode) {
-            recordNote(lane);
-        } else {
-            checkHit(lane);
-        }
-    }
-});
-
-function recordNote(lane) {
-    const currentTime = music.currentTime * 1000;
-
-    const note = {
-        lane: lane,
-        time: Math.round(currentTime)
-    };
-
-    recordedNotes.push(note);
-
-    console.log(note);
-}
-
 function checkHit(lane) {
     const currentTime = music.currentTime * 1000;
 
@@ -197,7 +209,17 @@ function checkHit(lane) {
         return;
     }
 
-    if (closestDistance <= 30) {
+    if (
+        closestNote.type === "hold" &&
+        closestDistance <= GOOD_WINDOW
+    ) {
+        closestNote.holding = true;
+        hitMessage = "HOLD";
+
+    return;
+    }
+
+    if (closestDistance <= PERFECT_WINDOW) {
         hitMessage = "PERFECT";
         closestNote.hit = true;
 
@@ -208,7 +230,7 @@ function checkHit(lane) {
         perfectCount++;
         addCombo();
 
-    } else if (closestDistance <= 60) {
+    } else if (closestDistance <= GREAT_WINDOW) {
         hitMessage = "GREAT";
         closestNote.hit = true;
 
@@ -219,7 +241,7 @@ function checkHit(lane) {
         greatCount++;
         addCombo();
 
-    } else if (closestDistance <= 100) {
+    } else if (closestDistance <= GOOD_WINDOW) {
         hitMessage = "GOOD";
         closestNote.hit = true;
         score += 300; // Add score for GOOD hit
@@ -234,6 +256,50 @@ function checkHit(lane) {
         combo = 0;
     }
     
+}
+
+function checkHoldNotes(currentTime) {
+
+    for (const note of notes) {
+
+        if (note.type !== "hold") {
+            continue;
+        }
+
+        if (!note.holding) {
+            continue;
+        }
+
+        if (note.hit) {
+            continue;
+        }
+
+        if (!keyHeld[note.lane]) {
+            note.hit = true;
+            note.holding = false;
+
+            hitMessage = "MISS";
+            missCount++;
+            judgedNotes++;
+            combo = 0;
+
+            continue;
+        }
+
+        if (currentTime >= note.endTime) {
+            note.hit = true;
+            note.holding = false;
+
+            hitMessage = "PERFECT";
+
+            perfectCount++;
+            judgedNotes++;
+            totalJudgementScore += 100;
+            score += 1000;
+
+            addCombo();
+        }
+    }
 }
 
 function addCombo() {
@@ -265,7 +331,11 @@ function checkMiss(currentTime) {
             continue;
         }
 
-        if (currentTime - note.time > 100) {
+        if (note.type === "hold" && note.holding) {
+            continue;
+        }
+
+        if (currentTime - note.time > GOOD_WINDOW) {
             note.hit = true;
             hitMessage = "MISS";
 
@@ -438,6 +508,9 @@ document.addEventListener("keydown", function(event) {
             return {
                 lane: note.lane,
                 time: note.time,
+                endTime: note.endTime,
+                type: note.type,
+                holding: false,
                 hit: false
             };
         });
@@ -469,5 +542,87 @@ document.addEventListener("keydown", function(event) {
         hitMessage = "";
     }
 });
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.repeat) {
+        return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if (keyMap[key] !== undefined) {
+        const lane = keyMap[key];
+
+        keyHeld[lane] = true;
+
+        if (editMode) {
+            holdStartTimes[lane] = Math.round(
+                music.currentTime * 1000
+            );
+        } else {
+            checkHit(lane);
+        }
+    }
+});
+
+document.addEventListener("keyup", function(event) {
+    const key = event.key.toLowerCase();
+
+    if (keyMap[key] !== undefined) {
+        const lane = keyMap[key];
+
+        keyHeld[lane] = false;
+
+        if (editMode && holdStartTimes[lane] !== null) {
+
+            const startTime = holdStartTimes[lane];
+            const endTime = Math.round(
+                music.currentTime * 1000
+            );
+
+            const duration = endTime - startTime;
+
+            if (duration >= 200) {
+
+                recordedNotes.push({
+                    lane: lane,
+                    time: startTime,
+                    endTime: endTime,
+                    type: "hold"
+                });
+
+                console.log("HOLD NOTE", recordedNotes.at(-1));
+
+            } else {
+
+                recordedNotes.push({
+                    lane: lane,
+                    time: startTime
+                });
+
+                console.log("NORMAL NOTE", recordedNotes.at(-1));
+            }
+
+            holdStartTimes[lane] = null;
+        }
+    }
+});
+
+function drawKeyLights() {
+    for (let i = 0; i < laneCount; i++) {
+
+        if (keyHeld[i]) {
+            ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+
+            ctx.fillRect(
+                i * laneWidth,
+                0,
+                laneWidth,
+                canvas.height
+            );
+        }
+    }
+}
 
 gameLoop();
