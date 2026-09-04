@@ -25,7 +25,10 @@ const keyHeld = [false, false, false, false];
 const holdStartTimes = [null, null, null, null];
 
 const judgeLineY = 700;
-let travelTime = 2000;
+
+let travelTime = Number(
+    localStorage.getItem("noteSpeed")
+) || 2000;
 
 const PERFECT_WINDOW = 50;
 const GREAT_WINDOW = 100;
@@ -35,27 +38,37 @@ const HOLD_END_WINDOW = 300;
 
 const music = document.getElementById("music");
 
-music.volume = 0.5;
+const savedVolume = localStorage.getItem("musicVolume");
+
+if (savedVolume !== null) {
+    music.volume = Number(savedVolume);
+} else {
+    music.volume = 0.5;
+}
 
 document.addEventListener("keydown", function(event) {
 
     if (event.key === "1") {
         travelTime = 3000;
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED 1");
     }
 
     if (event.key === "2") {
         travelTime = 2000;
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED 2");
     }
 
     if (event.key === "3") {
         travelTime = 1500;
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED 3");
     }
 
     if (event.key === "4") {
         travelTime = 1000;
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED 4");
     }
 });
@@ -76,6 +89,7 @@ document.addEventListener("keydown", function(event) {
 
     if (event.key === "-") {
         music.volume = Math.max(0, music.volume - 0.1);
+        localStorage.setItem("musicVolume", music.volume);
         setHitMessage(
             "VOLUME " + Math.round(music.volume * 100) + "%"
         );
@@ -83,6 +97,7 @@ document.addEventListener("keydown", function(event) {
 
     if (event.key === "+") {
         music.volume = Math.min(1, music.volume + 0.1);
+        localStorage.setItem("musicVolume", music.volume);
         setHitMessage(
             "VOLUME " + Math.round(music.volume * 100) + "%"
         );
@@ -110,58 +125,6 @@ document.addEventListener("keydown", function(event) {
         }
     }
 });
-
-function drawSettings() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
-    ctx.fillRect(50, 150, 400, 500);
-
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 150, 400, 500);
-
-    ctx.fillStyle = "white";
-    ctx.textAlign = "center";
-
-    ctx.font = "32px Arial";
-    ctx.fillText(
-        "SETTINGS",
-        canvas.width / 2,
-        210
-    );
-
-    ctx.font = "24px Arial";
-
-    ctx.fillText(
-        "NOTE SPEED",
-        canvas.width / 2,
-        300
-    );
-
-    ctx.fillText(
-        travelTime,
-        canvas.width / 2,
-        340
-    );
-
-    ctx.fillText(
-        "VOLUME",
-        canvas.width / 2,
-        420
-    );
-
-    ctx.fillText(
-        Math.round(music.volume * 100) + "%",
-        canvas.width / 2,
-        460
-    );
-
-    ctx.font = "18px Arial";
-    ctx.fillText(
-        "ESC : CLOSE",
-        canvas.width / 2,
-        590
-    );
-}
 
 function drawSettings() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
@@ -997,6 +960,7 @@ canvas.addEventListener("click", function(event) {
         mouseY <= 365
     ) {
         travelTime = Math.min(3000, travelTime + 500);
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED DOWN");
     }
 
@@ -1009,6 +973,7 @@ canvas.addEventListener("click", function(event) {
         mouseY <= 365
     ) {
         travelTime = Math.max(1000, travelTime - 500);
+        localStorage.setItem("noteSpeed", travelTime);
         setHitMessage("SPEED UP");
     }
 
@@ -1024,6 +989,8 @@ canvas.addEventListener("click", function(event) {
             0,
             music.volume - 0.1
         );
+
+        localStorage.setItem("musicVolume", music.volume);
 
         setHitMessage(
             "VOLUME " +
@@ -1044,6 +1011,8 @@ canvas.addEventListener("click", function(event) {
             1,
             music.volume + 0.1
         );
+
+        localStorage.setItem("musicVolume", music.volume);
 
         setHitMessage(
             "VOLUME " +
