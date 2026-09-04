@@ -40,6 +40,30 @@ const music = document.getElementById("music");
 
 const savedVolume = localStorage.getItem("musicVolume");
 
+const musicFileInput = document.getElementById("musicFileInput");
+
+let selectedMusicFile = null;
+
+musicFileInput.addEventListener("change", function(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    selectedMusicFile = file;
+
+    const musicURL = URL.createObjectURL(file);
+
+    music.src = musicURL;
+    music.load();
+
+    setHitMessage("MUSIC LOADED");
+
+    console.log("読み込んだ曲:", file.name);
+});
+
 if (savedVolume !== null) {
     music.volume = Number(savedVolume);
 } else {
@@ -921,6 +945,8 @@ document.addEventListener("keyup", function(event) {
     }
 });
 
+
+
 function drawKeyLights() {
     for (let i = 0; i < laneCount; i++) {
 
@@ -936,6 +962,99 @@ function drawKeyLights() {
         }
     }
 }
+
+const chartFileInput =
+    document.getElementById("chartFileInput");
+
+chartFileInput.addEventListener("change", async function(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    const text = await file.text();
+
+    const chartData = JSON.parse(text);
+
+    notes = chartData.notes.map(function(note) {
+
+        return {
+            lane: note.lane,
+            time: note.time,
+            endTime: note.endTime,
+            type: note.type,
+            holding: false,
+            hit: false
+        };
+
+    });
+
+    music.pause();
+    music.currentTime = 0;
+
+    score = 0;
+    combo = 0;
+    maxCombo = 0;
+
+    totalJudgementScore = 0;
+    judgedNotes = 0;
+
+    perfectCount = 0;
+    greatCount = 0;
+    goodCount = 0;
+    missCount = 0;
+
+    showResult = false;
+
+    setHitMessage("CHART LOADED");
+
+    console.log("譜面読み込み:", chartData);
+});
+
+function exportChart() {
+
+    const chartData = {
+        title: selectedMusicFile
+            ? selectedMusicFile.name
+            : "Unknown Song",
+
+        notes: recordedNotes
+    };
+
+    const jsonText = JSON.stringify(
+        chartData,
+        null,
+        2
+    );
+
+    const blob = new Blob(
+        [jsonText],
+        { type: "application/json" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "chart.json";
+
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+    setHitMessage("CHART EXPORTED");
+}
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.key.toLowerCase() === "x") {
+        exportChart();
+    }
+
+});
 
 canvas.addEventListener("click", function(event) {
 
@@ -1022,5 +1141,7 @@ canvas.addEventListener("click", function(event) {
     }
 
 });
+
+console.log("JSZip:", JSZip);
 
 gameLoop();

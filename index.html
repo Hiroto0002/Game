@@ -10,11 +10,18 @@
 </head>
 
 <body>
-
     <canvas id="gameCanvas"></canvas>
+
+    <input type="file" id="musicFileInput" accept=".mp3,audio/mpeg">
+
+    <input type="file" id="chartFileInput" accept=".json,application/json">
+
+    <audio id="music"></audio>
     
-    <audio id="music" src="music.mp3"></audio>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <script src="game.js"></script>
+    
 </body>
+
 </html>
