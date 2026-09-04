@@ -1,5 +1,10 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+let combo = 0;
+let maxCombo = 0;
+let score = 0;
+let totalJudgementScore = 0;
+let judgedNotes = 0;
 
 canvas.width = 500;
 canvas.height = 800;
@@ -9,6 +14,7 @@ const laneWidth = canvas.width / laneCount;
 
 ctx.strokeStyle = "white";
 ctx.lineWidth = 2;
+
 
 for (let i = 1; i < laneCount; i++) {
     const x = laneWidth * i;
@@ -44,12 +50,14 @@ function drawNotes(currentTime) {
     ctx.fillStyle = "cyan";
 
     for (const note of notes) {
+
+        if (note.hit) {
+            continue;
+        }
+
         const timeUntilHit = note.time - currentTime;
-
         const progress = 1 - timeUntilHit / travelTime;
-
         const y = progress * judgeLineY;
-
         const x = note.lane * laneWidth + 10;
 
         ctx.fillRect(
@@ -61,17 +69,17 @@ function drawNotes(currentTime) {
     }
 }
 
-const notes = [
-    { lane: 0, time: 1000 },
-    { lane: 2, time: 1500 },
-    { lane: 1, time: 2000 },
-    { lane: 3, time: 2500 }
+let notes = [
+    { lane: 0, time: 1000, hit: false },
+    { lane: 2, time: 1500, hit: false },
+    { lane: 1, time: 2000, hit: false },
+    { lane: 3, time: 2500, hit: false }
 ];
 
 const recordedNotes = [];
+let editMode = false;
 
-
-function gameLoop() {let editMode = false;
+function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawLanes();
@@ -79,8 +87,12 @@ function gameLoop() {let editMode = false;
 
     const currentTime = music.currentTime * 1000;
 
+    checkMiss(currentTime);
+
     drawNotes(currentTime);
     drawHitMessage();
+    drawCombo();
+    drawScore();
     drawEditMode();
 
     requestAnimationFrame(gameLoop);
@@ -111,7 +123,6 @@ function drawJudgeLine() {
     ctx.stroke();
 }
 
-const hitWindow = 50;
 let hitMessage = "";
 
 document.addEventListener("keydown", function(event) {
@@ -155,6 +166,11 @@ function checkHit(lane) {
     let closestDistance = Infinity;
 
     for (const note of notes) {
+
+        if (note.hit) {
+            continue;
+        }
+
         if (note.lane !== lane) {
             continue;
         }
@@ -174,14 +190,63 @@ function checkHit(lane) {
 
     if (closestDistance <= 30) {
         hitMessage = "PERFECT";
+        closestNote.hit = true;
+
+        score += 1000; // Add score for PERFECT hit
+        addCombo();
     } else if (closestDistance <= 60) {
         hitMessage = "GREAT";
+        closestNote.hit = true;
+        score += 700; // Add score for GREAT hit
+        addCombo();
     } else if (closestDistance <= 100) {
         hitMessage = "GOOD";
+        closestNote.hit = true;
+        score += 300; // Add score for GOOD hit
+        addCombo();
     } else {
         hitMessage = "MISS";
+        combo = 0;
     }
     
+}
+
+function addCombo() {
+    combo++;
+
+    if (combo > maxCombo) {
+        maxCombo = combo;
+    }
+}
+
+function drawCombo() {
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.textAlign = "center";
+
+    if (combo > 0) {
+        ctx.fillText(
+            combo + " COMBO",
+            canvas.width / 2,
+            500
+        );
+    }
+}
+
+function checkMiss(currentTime) {
+    for (const note of notes) {
+
+        if (note.hit) {
+            continue;
+        }
+
+        if (currentTime - note.time > 100) {
+            note.hit = true;
+            hitMessage = "MISS";
+
+            combo = 0;
+        }
+    }
 }
 
 function drawHitMessage() {
@@ -193,6 +258,18 @@ function drawHitMessage() {
         hitMessage,
         canvas.width / 2,
         400
+    );
+}
+
+function drawScore() {
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.textAlign = "right";
+
+    ctx.fillText(
+        "SCORE " + score,
+        canvas.width - 20,
+        30
     );
 }
 
@@ -210,9 +287,6 @@ function drawEditMode() {
     }
 }
 
-
-let editMode = false;
-
 document.addEventListener("keydown", function(event) {
     if (event.key.toLowerCase() === "e") {
         editMode = !editMode;
@@ -229,6 +303,35 @@ document.addEventListener("keydown", function(event) {
         hitMessage = "";
 
         console.log("曲を最初に戻しました");
+    }
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key.toLowerCase() === "p") {
+
+        // 記録した譜面をゲーム用にコピー
+        notes = recordedNotes.map(function(note) {
+            return {
+                lane: note.lane,
+                time: note.time,
+                hit: false
+            };
+        });
+
+        // EDIT MODE終了
+        editMode = false;
+
+        // 曲を最初に戻す
+        music.pause();
+        music.currentTime = 0;
+        
+        score = 0;
+        combo = 0;
+        maxCombo = 0;
+        hitMessage = "";
+
+        console.log("PLAY MODE");
+        console.log(notes);
     }
 });
 
