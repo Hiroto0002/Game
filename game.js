@@ -64,6 +64,199 @@ musicFileInput.addEventListener("change", function(event) {
     console.log("読み込んだ曲:", file.name);
 });
 
+async function exportPackage() {
+
+    if (!selectedMusicFile) {
+        setHitMessage("NO MUSIC");
+        return;
+    }
+
+    if (recordedNotes.length === 0) {
+        setHitMessage("NO CHART");
+        return;
+    }
+
+    const zip = new JSZip();
+
+    const chartData = {
+        title: selectedMusicFile.name,
+        audio: selectedMusicFile.name,
+        notes: recordedNotes
+    };
+
+    const jsonText = JSON.stringify(
+        chartData,
+        null,
+        2
+    );
+
+    zip.file(
+        selectedMusicFile.name,
+        selectedMusicFile
+    );
+
+    zip.file(
+        "chart.json",
+        jsonText
+    );
+
+    const packageBlob = await zip.generateAsync({
+        type: "blob"
+    });
+
+    const url = URL.createObjectURL(packageBlob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+
+    const songName =
+        selectedMusicFile.name.replace(/\.[^/.]+$/, "");
+
+    link.download = songName + ".rgame";
+
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+    setHitMessage("PACKAGE EXPORTED");
+}
+
+const packageFileInput =
+    document.getElementById("packageFileInput");
+
+let currentMusicURL = null;
+
+packageFileInput.addEventListener(
+    "change",
+    async function(event) {
+
+        const file = event.target.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        try {
+
+            // .rgame をZIPとして開く
+            const zip = await JSZip.loadAsync(file);
+
+            // chart.jsonを探す
+            const chartFile = zip.file("chart.json");
+
+            if (!chartFile) {
+                setHitMessage("NO CHART.JSON");
+                return;
+            }
+
+            // chart.jsonを文字として読み込む
+            const chartText =
+                await chartFile.async("string");
+
+            const chartData =
+                JSON.parse(chartText);
+
+            // JSONに書かれている音楽ファイル名を取得
+            const audioFileName =
+                chartData.audio;
+
+            if (!audioFileName) {
+                setHitMessage("NO AUDIO INFO");
+                return;
+            }
+
+            // ZIP内から音楽を探す
+            const audioFile =
+                zip.file(audioFileName);
+
+            if (!audioFile) {
+                setHitMessage("NO AUDIO FILE");
+                return;
+            }
+
+            // 音楽をBlobとして取り出す
+            const audioBlob =
+                await audioFile.async("blob");
+
+            // 前の曲のURLがあれば解放
+            if (currentMusicURL) {
+                URL.revokeObjectURL(
+                    currentMusicURL
+                );
+            }
+
+            currentMusicURL =
+                URL.createObjectURL(audioBlob);
+
+            music.src = currentMusicURL;
+            music.load();
+
+            // 再EXPORTできるように
+            // 音楽ファイルとして保持
+            selectedMusicFile = new File(
+                [audioBlob],
+                audioFileName,
+                {
+                    type:
+                        audioBlob.type ||
+                        "audio/mpeg"
+                }
+            );
+
+            // 譜面をゲーム用notesに変換
+            notes = chartData.notes.map(
+                function(note) {
+
+                    return {
+                        lane: note.lane,
+                        time: note.time,
+                        endTime: note.endTime,
+                        type: note.type,
+                        holding: false,
+                        hit: false
+                    };
+
+                }
+            );
+
+            // ゲーム状態をリセット
+            music.pause();
+            music.currentTime = 0;
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+
+            totalJudgementScore = 0;
+            judgedNotes = 0;
+
+            perfectCount = 0;
+            greatCount = 0;
+            goodCount = 0;
+            missCount = 0;
+
+            showResult = false;
+
+            setHitMessage("PACKAGE LOADED");
+
+            console.log(
+                "RGame読み込み成功:",
+                chartData
+            );
+
+        } catch (error) {
+
+            console.error(
+                "RGame読み込みエラー:",
+                error
+            );
+
+            setHitMessage("LOAD ERROR");
+        }
+    }
+);
+
 if (savedVolume !== null) {
     music.volume = Number(savedVolume);
 } else {
@@ -1052,6 +1245,14 @@ document.addEventListener("keydown", function(event) {
 
     if (event.key.toLowerCase() === "x") {
         exportChart();
+    }
+
+});
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.key.toLowerCase() === "c") {
+        exportPackage();
     }
 
 });
