@@ -82,22 +82,31 @@ let editMode = false;
 function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawLanes();
-    drawJudgeLine();
+    if (showResult) {
 
-    const currentTime = music.currentTime * 1000;
+        drawResult();
 
-    checkMiss(currentTime);
+    } else {
 
-    drawNotes(currentTime);
-    drawHitMessage();
-    drawCombo();
-    drawScore();
-    drawEditMode();
+        drawLanes();
+        drawJudgeLine();
+
+        const currentTime = music.currentTime * 1000;
+
+        if (!editMode) {
+            checkMiss(currentTime);
+        }
+
+        drawNotes(currentTime);
+        drawHitMessage();
+        drawCombo();
+        drawScore();
+        drawAccuracy();
+        drawEditMode();
+    }
 
     requestAnimationFrame(gameLoop);
 }
-
 
 function drawLanes() {
     ctx.strokeStyle = "white";
@@ -193,17 +202,33 @@ function checkHit(lane) {
         closestNote.hit = true;
 
         score += 1000; // Add score for PERFECT hit
+        totalJudgementScore += 100;
+        judgedNotes++;
+
+        perfectCount++;
         addCombo();
+
     } else if (closestDistance <= 60) {
         hitMessage = "GREAT";
         closestNote.hit = true;
+
         score += 700; // Add score for GREAT hit
+        totalJudgementScore += 80;
+        judgedNotes++;
+        
+        greatCount++;
         addCombo();
+
     } else if (closestDistance <= 100) {
         hitMessage = "GOOD";
         closestNote.hit = true;
         score += 300; // Add score for GOOD hit
+        totalJudgementScore += 50;
+        judgedNotes++;
+
+        goodCount++;
         addCombo();
+    
     } else {
         hitMessage = "MISS";
         combo = 0;
@@ -244,6 +269,9 @@ function checkMiss(currentTime) {
             note.hit = true;
             hitMessage = "MISS";
 
+            judgedNotes++;
+            missCount++;
+
             combo = 0;
         }
     }
@@ -270,6 +298,102 @@ function drawScore() {
         "SCORE " + score,
         canvas.width - 20,
         30
+    );
+}
+
+let perfectCount = 0;
+let greatCount = 0;
+let goodCount = 0;
+let missCount = 0;
+
+let showResult = false;
+
+function getAccuracy() {
+    if (judgedNotes === 0) {
+        return 100;
+    }
+
+    return totalJudgementScore / judgedNotes;
+}
+
+function drawAccuracy() {
+    const accuracy = getAccuracy();
+
+    ctx.fillStyle = "white";
+    ctx.font = "22px Arial";
+    ctx.textAlign = "right";
+
+    ctx.fillText(
+        "ACC " + accuracy.toFixed(2) + "%",
+        canvas.width - 20,
+        60
+    );
+}
+
+music.addEventListener("ended", function() {
+    if (!editMode) {
+        showResult = true;
+    }
+});
+
+function drawResult() {
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+
+    ctx.font = "40px Arial";
+    ctx.fillText(
+        "RESULT",
+        canvas.width / 2,
+        100
+    );
+
+    ctx.font = "26px Arial";
+
+    ctx.fillText(
+        "PERFECT   " + perfectCount,
+        canvas.width / 2,
+        200
+    );
+
+    ctx.fillText(
+        "GREAT     " + greatCount,
+        canvas.width / 2,
+        250
+    );
+
+    ctx.fillText(
+        "GOOD      " + goodCount,
+        canvas.width / 2,
+        300
+    );
+
+    ctx.fillText(
+        "MISS      " + missCount,
+        canvas.width / 2,
+        350
+    );
+
+    ctx.font = "30px Arial";
+
+    ctx.fillText(
+        "MAX COMBO   " + maxCombo,
+        canvas.width / 2,
+        450
+    );
+
+    ctx.fillText(
+        "ACC   " + getAccuracy().toFixed(2) + "%",
+        canvas.width / 2,
+        500
+    );
+
+    ctx.fillText(
+        "SCORE   " + score,
+        canvas.width / 2,
+        550
     );
 }
 
@@ -328,10 +452,21 @@ document.addEventListener("keydown", function(event) {
         score = 0;
         combo = 0;
         maxCombo = 0;
-        hitMessage = "";
+
+        totalJudgementScore = 0;
+        judgedNotes = 0;
+
+        perfectCount = 0;
+        greatCount = 0;
+        goodCount = 0;
+        missCount = 0;
 
         console.log("PLAY MODE");
         console.log(notes);
+
+        showResult = false;
+
+        hitMessage = "";
     }
 });
 
