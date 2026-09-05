@@ -68,7 +68,16 @@ let travelTime = Number(
 ) || 2000;
 
 let selectedMusicFile = null;
+let currentSongInfo = {
+    title: "NO SONG",
+    artist: "Unknown Artist",
+    difficulty: "NORMAL",
+    level: 1
+};
+
 let jacketImage = null;
+let selectedJacketFile = null;
+
 
 let notes = [
          { lane: 0, time: 1000, hit: false },
@@ -1024,20 +1033,34 @@ function drawSongSelectScreen() {
     // 曲名
     ctx.font = "26px Arial";
 
-    let songTitle = "NO SONG";
-
-    if (selectedMusicFile) {
-        songTitle =
-            selectedMusicFile.name.replace(
-                /\.[^/.]+$/,
-                ""
-            );
-    }
+    ctx.font = "28px Arial";
 
     ctx.fillText(
-        songTitle,
+        currentSongInfo.title,
         canvas.width / 2,
-        420
+        400
+    );
+
+    ctx.font = "18px Arial";
+
+    ctx.fillText(
+        currentSongInfo.artist,
+        canvas.width / 2,
+        430
+    );
+
+    ctx.font = "20px Arial";
+
+    ctx.fillText(
+        currentSongInfo.difficulty,
+        canvas.width / 2,
+        465
+    );
+
+    ctx.fillText(
+        "LEVEL " + currentSongInfo.level,
+        canvas.width / 2,
+        490
     );
 
 
@@ -1562,58 +1585,56 @@ function drawTitleScreen() {
 // 11. FILE IMPORT / EXPORT
 // ==============================
 musicFileInput.addEventListener("change", function(event) {
+    const file = event.target.files[0];
+    if (!file) {
+    return;
+    }
 
-         const file = event.target.files[0];
+    selectedMusicFile = file;
+    currentSongInfo.title =
+ file.name.replace(/\.[^/.]+$/, "");
 
-         if (!file) {
-             return;
-         }
+    const musicURL = URL.createObjectURL(file);
 
-         selectedMusicFile = file;
+    music.src = musicURL;
+    music.load();
 
-         const musicURL = URL.createObjectURL(file);
+    setHitMessage("MUSIC LOADED");
 
-         music.src = musicURL;
-         music.load();
-
-         setHitMessage("MUSIC LOADED");
-
-         console.log("読み込んだ曲:", file.name);
+    console.log("読み込んだ曲:", file.name);
 });
 
 function exportChart() {
 
-         const chartData = {
-             title: selectedMusicFile
-                 ? selectedMusicFile.name
-                 : "Unknown Song",
+        const chartData = {
+            version: 1,
+            title: selectedMusicFile.name.repeat(/.[^/.]+$/, ""),
+            artist: "Unknown",
+            audio: selectedMusicFile.name,
+            jacket: selectedJacketFile ? selectedJaketFile.name : null,
+            difficulty: "NORMAL",
+            level: 1,
+            notes: recordedNotes 
 
-             notes: recordedNotes
-         };
+        };
 
-         const jsonText = JSON.stringify(
-             chartData,
-             null,
-             2
-         );
+        const blob = new Blob(
+            [jsonText],
+            { type: "application/json" }
+        );
 
-         const blob = new Blob(
-             [jsonText],
-             { type: "application/json" }
-         );
+        const url = URL.createObjectURL(blob);
 
-         const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
 
-         const link = document.createElement("a");
+        link.href = url;
+        link.download = "chart.json";
 
-         link.href = url;
-         link.download = "chart.json";
+        link.click();
 
-         link.click();
+        URL.revokeObjectURL(url);
 
-         URL.revokeObjectURL(url);
-
-         setHitMessage("CHART EXPORTED");
+        setHitMessage("CHART EXPORTED");
 }
 
 async function exportPackage() {
@@ -1646,6 +1667,13 @@ async function exportPackage() {
              selectedMusicFile.name,
              selectedMusicFile
          );
+
+         if (selectedJacketFile) {
+            zip.file(
+                selectedJacketFile.name,
+                selectedJacketFile
+            );
+         }
 
          zip.file(
              "chart.json",
@@ -1726,6 +1754,11 @@ packageFileInput.addEventListener(
                  const chartData =
                      JSON.parse(chartText);
 
+                     currentSongInfo.title = chartData.title || "NO SONG";
+                     currentSongInfo.artist = chartData.artist || "Unknown Artist";
+                     currentSongInfo.difficulty = chartData.difficulty || "NORMAL";
+                     currentSongInfo.level = chartData.level || 1;
+
                  // JSONに書かれている音楽ファイル名を取得
                  const audioFileName =
                      chartData.audio;
@@ -1742,6 +1775,34 @@ packageFileInput.addEventListener(
                  if (!audioFile) {
                      setHitMessage("NO AUDIO FILE");
                      return;
+                 }
+
+                 if (chartData.jacket) {
+                     const jacketFile =
+                        zip.file(chartData.jacket);
+
+                     if (jacketFile) {
+                         const jacketBlob =
+                         await jacketFile.async("blob");
+
+                         selectedJacketFile = new File(
+                             [jacketBlob],
+                             chartData.jacket,
+                             {
+                                 type: jacketBlob.type || "image/jpeg"
+                             }
+                         );
+
+                          const jacketURL =
+                          URL.createObjectURL(jacketBlob);
+
+                          const image = new Image();
+                          image.onload = function() {
+                              jacketImage = image;
+                              URL.revokeObjectURL(jacketURL);
+                          }
+                          image.src = jacketURL;
+                     }
                  }
 
                  // 音楽をBlobとして取り出す
@@ -1807,12 +1868,15 @@ jacketFileInput.addEventListener("change", function(event) {
         return;
     }
 
+    selectedJacketFile = file;
+
     const imageURL =
         URL.createObjectURL(file);
 
     const image = new Image();
 
     image.onload = function() {
+
         jacketImage = image;
 
         URL.revokeObjectURL(imageURL);
